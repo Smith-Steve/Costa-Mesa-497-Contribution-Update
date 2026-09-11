@@ -13,7 +13,7 @@ const { SNSClient, CreateTopicCommand, SubscribeCommand } = require('@aws-sdk/cl
 
 const REGION = process.env.AWS_REGION || 'us-west-2';
 const TOPIC_NAME = 'costa-mesa-497-monitor-notifications';
-const NOTIFICATION_EMAIL = 'steve@steve4costamesa.com';
+const NOTIFICATION_EMAILS = ['steve@steve4costamesa.com', 'willsetka@gmail.com'];
 
 async function main() {
     const sns = new SNSClient({ region: REGION });
@@ -21,12 +21,14 @@ async function main() {
     const { TopicArn } = await sns.send(new CreateTopicCommand({ Name: TOPIC_NAME }));
     console.log(`Topic ready: ${TopicArn}`);
 
-    await sns.send(new SubscribeCommand({
-        TopicArn,
-        Protocol: 'email',
-        Endpoint: NOTIFICATION_EMAIL
-    }));
-    console.log(`Subscription request sent to ${NOTIFICATION_EMAIL}. Check that inbox and click the confirmation link.`);
+    for (const email of NOTIFICATION_EMAILS) {
+        await sns.send(new SubscribeCommand({
+            TopicArn,
+            Protocol: 'email',
+            Endpoint: email
+        }));
+        console.log(`Subscription request sent to ${email}. Check that inbox and click the confirmation link.`);
+    }
 
     console.log('\nNext step: put this ARN into config.json as "snsTopicArn":');
     console.log(TopicArn);
