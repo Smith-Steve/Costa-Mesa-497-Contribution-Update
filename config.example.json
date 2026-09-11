@@ -1,6 +1,5 @@
 {
   "pageUrl": "https://www.costamesaca.gov/government/departments-and-divisions/city-clerk/city-elections/city-elections-2026/2026-disclosure-statements",
-  "contentSelector": "main",
   "snsTopicArn": "arn:aws:sns:us-west-2:ACCOUNT_ID:costa-mesa-497-monitor-notifications",
   "awsRegion": "us-west-2"
 }

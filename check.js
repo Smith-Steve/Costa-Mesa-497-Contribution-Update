@@ -8,11 +8,11 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 const STATE_PATH = path.join(__dirname, 'state.json');
 const SNAPSHOT_DIR = path.join(__dirname, 'snapshots');
 
-const FALLBACK_SELECTORS = ['main', '#main-content', '.main-content', '.field--name-body', 'article', 'body'];
+const FORM_497_LABEL = /Contribution Report\s*\(Form 497\)/i;
 
 function loadConfig() {
     if (!fs.existsSync(CONFIG_PATH)) {
-        throw new Error(`Missing config.json. Copy config.example.json to config.json and fill in your values.`);
+        throw new Error('Missing config.json. Copy config.example.json to config.json and fill in your values.');
     }
     return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 }
@@ -28,22 +28,46 @@ function saveState(state) {
     fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
 }
 
-function extractText(html, preferredSelector) {
-    const $ = cheerio.load(html);
-    $('script, style, nav, header, footer').remove();
-
-    const selectors = [preferredSelector, ...FALLBACK_SELECTORS].filter(Boolean);
-    for (const selector of selectors) {
-        const el = $(selector).first();
-        if (el.length && el.text().trim().length > 0) {
-            return el.text().replace(/\s+/g, ' ').trim();
-        }
-    }
-    return $.text().replace(/\s+/g, ' ').trim();
+function normalize(text) {
+    return text.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function hashText(text) {
-    return crypto.createHash('sha256').update(text).digest('hex');
+// Each candidate is a <tr> with name/district in the first two <td>s and a
+// series of <p>label</p><ul><li><a>...</a></li></ul> blocks in the third,
+// one per disclosure form type. This pulls out just the Form 497 block.
+function extractForm497ByCandidate(html) {
+    const $ = cheerio.load(html);
+    const candidates = [];
+
+    $('tr').each((_, row) => {
+        const cells = $(row).find('> td');
+        if (cells.length < 3) return;
+
+        const candidateName = normalize($(cells[0]).text());
+        const district = normalize($(cells[1]).text());
+        if (!candidateName) return;
+
+        let form497Items = null;
+        $(cells[2]).find('p').each((_, p) => {
+            const label = normalize($(p).text());
+            if (FORM_497_LABEL.test(label)) {
+                const next = $(p).next();
+                form497Items = next.is('ul')
+                    ? next.find('li').map((_, li) => normalize($(li).text())).get()
+                    : [];
+            }
+        });
+
+        if (form497Items !== null) {
+            candidates.push({ key: `${candidateName} (${district})`, candidateName, district, form497Items });
+        }
+    });
+
+    return candidates;
+}
+
+function hashItems(items) {
+    return crypto.createHash('sha256').update(JSON.stringify(items)).digest('hex');
 }
 
 async function fetchPage(url) {
@@ -82,39 +106,57 @@ async function main() {
         return;
     }
 
-    const text = extractText(html, config.contentSelector);
-    const hash = hashText(text);
+    const candidates = extractForm497ByCandidate(html);
+
+    if (candidates.length === 0) {
+        console.error(`[${timestamp}] No candidate rows found - the page structure may have changed.`);
+        process.exitCode = 1;
+        return;
+    }
 
     fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
-    const snapshotFile = path.join(SNAPSHOT_DIR, `${timestamp.replace(/[:.]/g, '-')}.txt`);
-    fs.writeFileSync(snapshotFile, text);
+    fs.writeFileSync(
+        path.join(SNAPSHOT_DIR, `${timestamp.replace(/[:.]/g, '-')}.json`),
+        JSON.stringify(candidates, null, 2)
+    );
+
+    const currentHashes = {};
+    for (const candidate of candidates) {
+        currentHashes[candidate.key] = hashItems(candidate.form497Items);
+    }
 
     const previousState = loadState();
 
-    if (!previousState) {
-        saveState({ hash, lastChecked: timestamp, lastChanged: null });
-        console.log(`[${timestamp}] Baseline saved. No notification sent.`);
+    if (!previousState || !previousState.hashes) {
+        saveState({ hashes: currentHashes, lastChecked: timestamp, lastChanged: null });
+        console.log(`[${timestamp}] Baseline saved for ${candidates.length} candidates. No notification sent.`);
         return;
     }
 
-    if (previousState.hash === hash) {
-        saveState({ ...previousState, lastChecked: timestamp });
-        console.log(`[${timestamp}] No change detected.`);
+    const changedCandidates = candidates.filter(
+        (candidate) => previousState.hashes[candidate.key] !== currentHashes[candidate.key]
+    );
+
+    if (changedCandidates.length === 0) {
+        saveState({ ...previousState, hashes: currentHashes, lastChecked: timestamp });
+        console.log(`[${timestamp}] No Form 497 changes detected.`);
         return;
     }
 
-    console.log(`[${timestamp}] Change detected. Sending notification.`);
+    const names = changedCandidates.map((c) => c.candidateName).join(', ');
+    console.log(`[${timestamp}] Form 497 change detected for: ${names}`);
+
     try {
         await notify(
             config,
-            'Costa Mesa 2026 disclosure statements page changed',
-            `The Costa Mesa 2026 disclosure statements page appears to have changed.\n\n${config.pageUrl}\n\nDetected: ${timestamp}`
+            'Costa Mesa Form 497 update',
+            `New Contribution Report (Form 497) activity detected for: ${names}\n\n${config.pageUrl}\n\nDetected: ${timestamp}`
         );
     } catch (err) {
         console.error(`[${timestamp}] Notification failed:`, err.message);
     }
 
-    saveState({ hash, lastChecked: timestamp, lastChanged: timestamp });
+    saveState({ hashes: currentHashes, lastChecked: timestamp, lastChanged: timestamp });
 }
 
 main();
