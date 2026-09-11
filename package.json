@@ -1,0 +1,15 @@
+{
+  "name": "costa-mesa-497-contribution-update",
+  "version": "1.0.0",
+  "description": "Checks the Costa Mesa 2026 disclosure statements page for changes and sends a notification (email/SMS via AWS SNS) when it changes.",
+  "main": "check.js",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "check": "node check.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sns": "^3.700.0",
+    "cheerio": "^1.0.0"
+  }
+}
