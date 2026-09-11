@@ -6,7 +6,7 @@ $ProjectDir = $PSScriptRoot
 $NodePath = (Get-Command node).Source
 
 $Action = New-ScheduledTaskAction -Execute $NodePath -Argument "check.js" -WorkingDirectory $ProjectDir
-$Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 4) -RepetitionDuration ([TimeSpan]::MaxValue)
+$Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 4) -RepetitionDuration (New-TimeSpan -Days 3650)
 $Settings = New-ScheduledTaskSettingsSet -WakeToRun -StartWhenAvailable -DontStopOnIdleEnd -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
 
 Register-ScheduledTask -TaskName "CostaMesa497Monitor" `
