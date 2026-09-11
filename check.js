@@ -182,12 +182,6 @@ async function main() {
     const changeMessage = `${lines.join('\n')}\n\n${config.pageUrl}`;
 
     await notifySafe(config, 'Costa Mesa Form 497 update', changeMessage, timestamp);
-    await notifySafe(
-        config,
-        'Costa Mesa 497 monitor: scan complete',
-        `Scan completed at ${timestamp}. Changes detected for: ${names}.`,
-        timestamp
-    );
 
     saveState({ hashes: currentHashes, lastChecked: timestamp, lastChanged: timestamp });
 }
