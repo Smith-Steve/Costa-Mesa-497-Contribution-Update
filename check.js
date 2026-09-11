@@ -93,6 +93,14 @@ async function notify(config, subject, message) {
     }));
 }
 
+async function notifySafe(config, subject, message, timestamp) {
+    try {
+        await notify(config, subject, message);
+    } catch (err) {
+        console.error(`[${timestamp}] Notification failed:`, err.message);
+    }
+}
+
 async function main() {
     const config = loadConfig();
     const timestamp = new Date().toISOString();
@@ -102,6 +110,12 @@ async function main() {
         html = await fetchPage(config.pageUrl);
     } catch (err) {
         console.error(`[${timestamp}] Fetch failed:`, err.message);
+        await notifySafe(
+            config,
+            'Costa Mesa 497 monitor: scan failed',
+            `Scan failed at ${timestamp}: ${err.message}`,
+            timestamp
+        );
         process.exitCode = 1;
         return;
     }
@@ -110,6 +124,12 @@ async function main() {
 
     if (candidates.length === 0) {
         console.error(`[${timestamp}] No candidate rows found - the page structure may have changed.`);
+        await notifySafe(
+            config,
+            'Costa Mesa 497 monitor: scan failed',
+            `Scan completed at ${timestamp} but found 0 candidate rows - the page structure may have changed.`,
+            timestamp
+        );
         process.exitCode = 1;
         return;
     }
@@ -129,7 +149,13 @@ async function main() {
 
     if (!previousState || !previousState.hashes) {
         saveState({ hashes: currentHashes, lastChecked: timestamp, lastChanged: null });
-        console.log(`[${timestamp}] Baseline saved for ${candidates.length} candidates. No notification sent.`);
+        console.log(`[${timestamp}] Baseline saved for ${candidates.length} candidates. No change notification sent.`);
+        await notifySafe(
+            config,
+            'Costa Mesa 497 monitor: scan complete',
+            `Scan completed at ${timestamp}. Baseline established for ${candidates.length} candidates.`,
+            timestamp
+        );
         return;
     }
 
@@ -140,6 +166,12 @@ async function main() {
     if (changedCandidates.length === 0) {
         saveState({ ...previousState, hashes: currentHashes, lastChecked: timestamp });
         console.log(`[${timestamp}] No Form 497 changes detected.`);
+        await notifySafe(
+            config,
+            'Costa Mesa 497 monitor: scan complete',
+            `Scan completed at ${timestamp}. No Form 497 changes detected across ${candidates.length} candidates.`,
+            timestamp
+        );
         return;
     }
 
@@ -147,13 +179,15 @@ async function main() {
     console.log(`[${timestamp}] Form 497 change detected for: ${names}`);
 
     const lines = changedCandidates.map((c) => `Candidate ${c.candidateName} has had a 497 Contribution.`);
-    const message = `${lines.join('\n')}\n\n${config.pageUrl}`;
+    const changeMessage = `${lines.join('\n')}\n\n${config.pageUrl}`;
 
-    try {
-        await notify(config, 'Costa Mesa Form 497 update', message);
-    } catch (err) {
-        console.error(`[${timestamp}] Notification failed:`, err.message);
-    }
+    await notifySafe(config, 'Costa Mesa Form 497 update', changeMessage, timestamp);
+    await notifySafe(
+        config,
+        'Costa Mesa 497 monitor: scan complete',
+        `Scan completed at ${timestamp}. Changes detected for: ${names}.`,
+        timestamp
+    );
 
     saveState({ hashes: currentHashes, lastChecked: timestamp, lastChanged: timestamp });
 }
