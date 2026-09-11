@@ -13,7 +13,7 @@ const { SNSClient, CreateTopicCommand, SubscribeCommand } = require('@aws-sdk/cl
 
 const REGION = process.env.AWS_REGION || 'us-west-2';
 const TOPIC_NAME = 'costa-mesa-497-monitor-notifications';
-const NOTIFICATION_EMAILS = ['steve@steve4costamesa.com', 'willsetka@gmail.com'];
+const NOTIFICATION_EMAILS = ['steve@steve4costamesa.com', 'willsetka@gmail.com', 'ejdutra33@gmail.com'];
 
 async function main() {
     const sns = new SNSClient({ region: REGION });
