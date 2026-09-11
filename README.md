@@ -1,7 +1,7 @@
 # Costa Mesa 497 Contribution Update
 
 Monitors the [Costa Mesa 2026 disclosure statements page](https://www.costamesaca.gov/government/departments-and-divisions/city-clerk/city-elections/city-elections-2026/2026-disclosure-statements)
-for new Contribution Report (Form 497) filings and sends an SMS via AWS SNS when one appears.
+for new Contribution Report (Form 497) filings and sends an email via AWS SNS when one appears.
 
 The page lists candidates in a table, one `<tr>` per candidate, with a `Contribution Report
 (Form 497)` label followed by a `<ul>` of filed reports (links + dates) in each candidate's cell.
@@ -26,8 +26,12 @@ topic rather than reusing any other project's AWS resources.
 2. Make sure AWS credentials are configured on this machine (e.g. `~/.aws/credentials` or
    environment variables) with permission to create/publish to SNS topics and subscriptions.
 3. Run `node setup-sns.js` once. It creates a dedicated SNS topic
-   (`costa-mesa-497-monitor-notifications`) and subscribes `+12154981116` for SMS, then prints the
-   topic ARN. SMS subscriptions don't require confirmation.
+   (`costa-mesa-497-monitor-notifications`) and subscribes `steve@steve4costamesa.com` for email,
+   then prints the topic ARN. Check that inbox and click the confirmation link — email
+   subscriptions won't deliver until confirmed.
+   - SMS was tried first, but this AWS account's SMS sending (even the sandbox verification code)
+     is silently dropped, almost certainly because AWS SMS to US numbers now requires A2P 10DLC
+     carrier registration that hasn't been done here. Email doesn't have that problem.
 4. Copy `config.example.json` to `config.json` and fill in:
    - `snsTopicArn`: the ARN printed by `setup-sns.js`.
    - `awsRegion`: defaults to `us-west-2`.
