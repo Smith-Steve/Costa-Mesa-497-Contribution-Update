@@ -146,12 +146,11 @@ async function main() {
     const names = changedCandidates.map((c) => c.candidateName).join(', ');
     console.log(`[${timestamp}] Form 497 change detected for: ${names}`);
 
+    const lines = changedCandidates.map((c) => `Candidate ${c.candidateName} has had a 497 Contribution.`);
+    const message = `${lines.join('\n')}\n\n${config.pageUrl}`;
+
     try {
-        await notify(
-            config,
-            'Costa Mesa Form 497 update',
-            `New Contribution Report (Form 497) activity detected for: ${names}\n\n${config.pageUrl}\n\nDetected: ${timestamp}`
-        );
+        await notify(config, 'Costa Mesa Form 497 update', message);
     } catch (err) {
         console.error(`[${timestamp}] Notification failed:`, err.message);
     }
